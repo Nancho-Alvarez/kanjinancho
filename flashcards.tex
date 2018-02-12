@@ -1,0 +1,325 @@
+\definemode[grande][yes]
+\definemode[mediano][no]
+\definemode[pequeno][no]
+
+\startluacode
+FIRSTK=2 -- First kanji. Start in 2, the row 1 is a header
+LASTK=2137    -- Last janji (2137 for jouyou kanji)
+\stopluacode
+
+\def\lua#1{\ctxlua{context(#1)}}
+
+\startmode[grande]
+\startluacode gridx=4 gridy=4 \stopluacode
+\definepapersize[A8bis][width=52.5mm,height=74.25mm]
+\setuppapersize[A8bis][A4]
+\setuplayout[location=middle,margindistance=0mm,margin=3mm,width=46.5mm,height=71mm,topspace=2mm,backspace=3mm]
+\stopmode
+
+\startmode[mediano]
+\startluacode gridx=6 gridy=11 \stopluacode
+\definepapersize[tarjetamediana][width=35mm,height=27mm]
+\setuppapersize[tarjetamediana][A4]
+\setuplayout[location=middle,margindistance=0mm,margin=2mm,width=26.75mm,height=24mm,topspace=1.5mm,backspace=4mm]
+\stopmode
+
+\startmode[pequeno]
+\startluacode gridx=6 gridy=24 \stopluacode
+\definepapersize[tarjetapequena][width=35mm,height=12.375mm]
+\setuppapersize[tarjetapequena][A4]
+\setuplayout[location=middle,margindistance=0mm,margin=2mm,width=26.75mm,height=10mm,topspace=1mm,backspace=4mm]
+\stopmode
+
+\setuppaper[nx=\ctxlua{context(gridx)},ny=\ctxlua{context(gridy)}]
+\setuparranging[XY]
+%\showframe
+
+% to use the IPAex font, run as root:
+% apt-get install fonts-ipaexfont-mincho
+% export OSFONTDIR=/usr/share/font
+% mtxrun --script font --reload
+
+% fonts for big cards
+\definefont[fontkanji][name:ipaexmincho at 50pt]
+\definefont[fontkey][name:ipaexmincho at 15pt]
+\definefont[fontpalabras][name:ipaexmincho at 13pt]
+\definefont[fontpalabrasmuchas][name:ipaexmincho at 10pt]
+\definefont[fontheader][name:ipaexmincho at 8pt]
+\definefont[fontreadings][name:ipaexmincho at 13pt]
+\definefont[fontreadingsmuchas][name:ipaexmincho at 10pt]
+\definefont[fontwordreading][name:ipaexmincho at 10pt]
+\definefont[fonttranslation][name:latinmodernromanregular at 8pt]
+\definefont[fontfooter][name:latinmodernromanregular at 7pt]
+\definefont[fontlabel][name:latinmodernromanregular at 15pt]
+\definefont[fontmnemo][name:latinmodernromanregular at 8pt]
+
+% fonts for medium cards
+\definefont[fontkanjimed][name:ipaexmincho at 36pt]
+\definefont[fontkeymed][name:ipaexmincho at 10pt]
+\definefont[fontreadingsmed][name:ipaexmincho at 10pt]
+\definefont[fontlabelmed][name:latinmodernromanregular at 11pt]
+\definefont[fontlabelmuymed][name:latinmodernromanregular at 8pt]
+
+% fonts for small cards
+\definefont[fontkanjipeq][name:ipaexmincho at 23pt]
+\definefont[fontlabelpeq][name:latinmodernromanregular at 11pt]
+\definefont[fontlabelmuypeq][name:latinmodernromanregular at 8pt]
+
+% paragraphs
+\defineparagraphs[palabras][n=2]
+\setupparagraphs[palabras][1][width=.45\textwidth, color=darkred, align=middle]
+\setupparagraphs[palabras][2][width=.4\textwidth, color=darkgreen, align=middle]
+
+\defineparagraphs[lecturas][n=2]
+\setupparagraphs[lecturas][1][width=.3\textwidth, color=darkred, align=flushleft]
+\setupparagraphs[lecturas][2][width=.6\textwidth, color=darkgreen, align=flushright]
+
+% 4 gray points in the corners
+\newdimen\puntosize
+\newdimen\lenx
+\newdimen\leny
+\puntosize=0.5mm
+\lenx=\paperwidth
+\leny=\paperheight
+\advance\lenx by -\puntosize
+\advance\leny by -\puntosize
+\def\punto{\blackrule[width=\puntosize, height=\puntosize, color=middlegray]}
+\definelayer[puntos][x=0mm, y=0mm, width=\paperwidth, height=\paperheight, repeat=yes]
+\setlayer[puntos][x=0mm,   y=0mm  ]{\punto}
+\setlayer[puntos][x=0mm,   y=\leny]{\punto}
+\setlayer[puntos][x=\lenx, y=0mm  ]{\punto}
+\setlayer[puntos][x=\lenx, y=\leny]{\punto}
+\setupbackgrounds[page][background=puntos]
+
+\setupheader[state=none]
+\setupfooter[state=none]
+\starttext
+\language[es]
+\startluacode
+
+-- Must be a csv file with 28 fields separated by commas
+-- and every field enclosed by double quotes.
+-- The characters " and $ are forbiden inside each field
+NFIELDS=28
+local filename='kanjinancho.txt'
+local file=io.open(filename)
+local content=file:read "*a"
+file:close()
+
+i=1
+tokens={}
+for word in string.gmatch(content, '".-"') do
+	tokens[i]=string.sub(word,2,-2)
+	i=i+1
+end
+kanjis_por_hoja=gridx*gridy
+numero_de_kanjis=LASTK-FIRSTK+1
+kanjis_sobrantes=numero_de_kanjis % kanjis_por_hoja
+if kanjis_sobrantes > 0 then
+		numero_de_kanjis=numero_de_kanjis + kanjis_por_hoja - kanjis_sobrantes
+end
+n=0
+-- These variables are used below, I am unable to make lua escape them
+-- correctly if I define them in the secon luacode block
+patron="([^\n]+)\n([^\n]+)"
+replace="%1/%2"
+\stopluacode
+
+\dorecurse{\ctxlua{context(numero_de_kanjis*2)}}{
+
+\startluacode
+	hoja=math.floor(n/(2*kanjis_por_hoja))
+	k=n-hoja*2*kanjis_por_hoja
+	if k>= kanjis_por_hoja then
+		dorso=1
+		k=k-kanjis_por_hoja
+		cociente=math.floor(k/gridx)
+		resto=k-cociente*gridx
+		k=cociente*gridx+gridx-resto-1
+	else
+		dorso=0
+	end
+	i=k+hoja*kanjis_por_hoja
+	b=(i+FIRSTK-1)*NFIELDS
+	kanji=				tokens[b +  1]
+	spanish_key=		tokens[b +  2]
+	mnemo=				tokens[b +  3]
+	key=				tokens[b +  4]
+	key_reading=		tokens[b +  5]
+	heisig6=			tokens[b +  6]
+	strokes=			tokens[b +  7]
+	frequency=			tokens[b +  8]
+	grade=				tokens[b +  9]
+	on_jouyou=			tokens[b + 10]
+	kun_jouyou=			tokens[b + 11]
+	skip=				tokens[b + 12] skip=string.gsub(skip,"-0", "-")
+	on=					tokens[b + 13]
+	on_word=			tokens[b + 14] on_word=string.gsub(on_word,"\n","\\par ")
+	on_word_reading=	tokens[b + 15]
+	on_translation=		tokens[b + 16]
+	kun=				tokens[b + 17]
+	kun_word=			tokens[b + 18] kun_word=string.gsub(kun_word,"\n","\\par ")
+	kun_word_reading=	tokens[b + 19]
+	kun_translation=	tokens[b + 20]
+	kana_origin=		tokens[b + 21]
+	radical=			tokens[b + 22]
+	english_meanings=	tokens[b + 23]
+	irregular_readings=	tokens[b + 24]
+	examples=			tokens[b + 25]
+	on_kanjidic=		tokens[b + 26]
+	kun_kanjidic=		tokens[b + 27]
+	nanori=				tokens[b + 28]
+
+	% -- put each on and kun word and its translation in tables
+	% -- to be able to access them individually
+	lista_on={}
+	for s in on_word_reading:gmatch("[^\n]+") do
+		table.insert(lista_on,s)
+	end
+	lista_on_translation={}
+	for s in on_translation:gmatch("[^\n]+") do
+		table.insert(lista_on_translation,s)
+	end
+	lista_kun={}
+	for s in kun_word_reading:gmatch("[^\n]+") do
+		table.insert(lista_kun,s)
+	end
+	lista_kun_translation={}
+	for s in kun_translation:gmatch("[^\n]+") do
+		table.insert(lista_kun_translation,s)
+	end
+
+	% -- if there are too many on or kun readings, I group them in pairs
+	aux, onpairs=on:gsub(patron, replace)
+	if onpairs>1 then on=aux end
+	on=string.gsub(on,"\n","\\par ")
+	
+	aux, kunpairs=kun:gsub(patron, replace)
+	if kunpairs>1 then kun=aux end
+	kun=string.gsub(kun,"\n","\\par ")
+
+	maxpalabras=math.max(onpairs,kunpairs)
+	n=n+1
+	\stopluacode
+	\page[yes]
+
+	\startmode[grande]
+	\ifnum\lua{dorso}=0
+		%%%% CARA %%%%
+		\fontheader
+		\startoverlay
+		{\leftaligned{\lua{radical}}}
+		{\blue \midaligned{\lower 4mm\hbox{\fontkey\lua{key}}}}
+		{\rightaligned{\lua{heisig6}}}
+		\stopoverlay
+		\vskip 4mm minus 6mm
+		\midaligned{\fontkanji\lua{kanji}}
+		\vskip 4mm minus 6mm
+		\fontpalabras
+		\ifnum\lua{maxpalabras}>2 \fontpalabrasmuchas \fi
+		\startpalabras
+			\lua{on_word} \ % hack: if there are not on words, put a space
+		\palabras
+			\lua{kun_word}
+		\stoppalabras
+		\vfill
+		\fontfooter
+		\startoverlay
+		{\leftaligned{F:\lua{frequency}}}
+		{\midaligned{T:\lua{strokes} \ (\lua{skip})}}
+		{\rightaligned{G:\lua{grade}}}
+		\stopoverlay
+	\else
+		%%%% DORSO %%%%
+		\fontreadings
+		\ifnum\lua{maxpalabras}>2 \fontreadingsmuchas \fi
+		\startlecturas
+			\lua{on} \ % hack
+		\lecturas
+			\lua{kun}
+		\stoplecturas
+		\vskip -1mm
+		\midaligned{\fontkey\blue\lua{key_reading}}
+		\vskip 2mm
+		\midaligned{\fontlabel\lua{spanish_key}}
+		\vskip 2mm
+		\setupbodyfont[6pt]
+		\fontmnemo
+		\hrule
+		\vskip 1mm \lua{mnemo} \vskip 1mm
+		\hrule
+		\vskip 2mm minus 2mm
+		\vfil
+		\startluacode
+		for count=1, \string##lista_on do
+			tex.print("\\setbox0\\hbox{\\fontwordreading ", lista_on[count], " }")
+			tex.print("\\setuptab[width=.9\\wd0]")
+			tex.print("\\tab{\\fontwordreading\\darkred ", lista_on[count],"}")
+			tex.print("\\fonttranslation \\black ", lista_on_translation[count])
+			tex.print("\\par \\vfil")
+		end
+		\stopluacode
+		\vfil
+		\startluacode
+		for count=1, \string##lista_kun do
+			tex.print("\\fontwordreading\\darkgreen", lista_kun[count])
+			tex.print("\\fonttranslation \\black \\hskip 1mm ", lista_kun_translation[count])
+			tex.print("\\par \\vfil")
+		end
+		\stopluacode
+		\vfil
+	\fi
+	\stopmode
+
+	\startmode[mediano]
+	\ifnum\lua{dorso}=0
+		%%%% CARA %%%%
+		\fontkeymed
+		\topglue 2mm
+		\midaligned{\blue\lua{key}}
+		\vskip 2mm
+		\fontkanjimed
+		\midaligned{\blue\lua{kanji}}
+	\else
+		%%%% DORSO %%%%
+		\fontkeymed
+		\topglue 0.1mm
+		\vfil
+		\midaligned{\blue\lua{key_reading}}
+		\fontlabelmed
+		\setbox0\hbox{\lua{spanish_key}}
+		\ifdim\wd0>\textwidth \fontlabelmuymed \fi
+		\midaligned{\black\lua{spanish_key}}
+		\fontreadingsmed
+		\vskip -3mm
+		\startlecturas
+			\lua{on} \ % hack
+		\lecturas
+			\lua{kun}
+		\stoplecturas
+		\vfil
+	\fi
+	\stopmode
+
+	\startmode[pequeno]
+	\ifnum\lua{dorso}=0
+		%%%% CARA %%%%
+		\topglue 2mm
+		\vfil
+		\hfil\fontkanjipeq\blue\lua{kanji}\hfil
+		\vfil
+	\else
+		%%%% DORSO %%%%
+		\fontlabelpeq
+		\topglue 2mm
+		\vfil
+		\setbox0\hbox{\lua{spanish_key}}
+		\ifdim\wd0>\textwidth \fontlabelmuypeq \fi
+		\midaligned{\black\lua{spanish_key}}
+		\vfil
+	\fi
+	\stopmode
+}
+
+\stoptext
+

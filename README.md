@@ -2,5 +2,5 @@
 Generate flashcards for study Japanese kanji
 
 Dependencies: 
-  gnumeric
-  ConTeXt y LuaTeX
+  1. gnumeric (http://www.gnumeric.org)
+  2. ConTeXt y LuaTeX (http://contextgarden.net)
